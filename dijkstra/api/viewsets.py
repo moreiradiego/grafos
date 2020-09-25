@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,6 +15,20 @@ class EndpointViewSet(viewsets.ModelViewSet):
 class LogisticNetworkViewSet(viewsets.ModelViewSet):
     serializer_class = LogisticNetworkSerializer
     queryset = LogisticNetwork.objects.all()
+
+
+def make_graph(map):
+    base_map = Map.objects.get(pk=map)
+    base_edges = Endpoint.objects.filter(Q(origin__in=base_map.networks.all()) | Q(destiny__in=base_map.networks.all())).distinct()
+    base_graph = {}
+
+    for edge in base_edges:
+        base_graph.update({edge.name: {}})
+
+    for vertice in base_map.networks.all():
+        base_graph[vertice.origin.name][vertice.destiny.name] = vertice.distance
+
+    return base_graph
 
 
 class MapViewSet(viewsets.ModelViewSet):
@@ -41,8 +56,7 @@ class MapViewSet(viewsets.ModelViewSet):
 
     @action(methods=['POST'], detail=True)
     def calcular(self, request, pk=None):
-        graph = self.graph
-        base_graph = self.graph
+        base_graph = make_graph(pk)
         start = self.request.data['inicio']
         goal = self.request.data['fim']
         fuel_range = int(self.request.data['autonomia'])
@@ -83,5 +97,3 @@ class MapViewSet(viewsets.ModelViewSet):
             fuel_cost = (shortest_distance / float(fuel_range)) * float(fuel_price)
             str_path = ''.join(path).upper()
         return Response({"rota": str_path, "custo": fuel_cost})
-
-    graph = {"a": {"b": 10, "c": 20}, "b": {'d': 15, 'e': 50}, 'c': {"d": 30, "e": 5}, "d": {"e": 30}, "e": {}}
