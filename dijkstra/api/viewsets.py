@@ -37,7 +37,6 @@ class MapViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         data = self.request.data
-
         new_map = Map.objects.create()
         new_map.title = data['title']
         for endpoint_data in data['networks']:
@@ -56,11 +55,12 @@ class MapViewSet(viewsets.ModelViewSet):
 
     @action(methods=['POST'], detail=True)
     def calcular(self, request, pk=None):
+
         base_graph = make_graph(pk)
-        start = self.request.data['inicio']
-        goal = self.request.data['fim']
-        fuel_range = int(self.request.data['autonomia'])
-        fuel_price = float(self.request.data['valor_litro'])
+        start = self.request.POST.get('inicio', next(iter(base_graph)))
+        goal = self.request.POST.get('fim', next(reversed(base_graph)))
+        fuel_range = self.request.POST.get('autonomia', 0)
+        fuel_price = self.request.POST.get('valor_litro', 0)
         shortest_distance = {}
         predecessor = {}
         unseen_nodes = base_graph
@@ -94,6 +94,9 @@ class MapViewSet(viewsets.ModelViewSet):
         if shortest_distance[goal] != infinity:
             path.insert(0, start)
             shortest_distance = shortest_distance[goal]
-            fuel_cost = (shortest_distance / float(fuel_range)) * float(fuel_price)
+            if fuel_range == 0 or fuel_price == 0:
+                fuel_cost = "Gasro de combustível não solicitado. Por favor, preencha a autonomia e o valor por litro"
+            else:
+                fuel_cost = (shortest_distance / float(fuel_range)) * float(fuel_price)
             str_path = ''.join(path).upper()
         return Response({"rota": str_path, "custo": fuel_cost})

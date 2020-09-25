@@ -35,3 +35,18 @@ class MapSerializer(serializers.ModelSerializer):
         model = Map
         fields = ['id', 'title', 'networks']
         depth = 2
+
+
+class CalculateSerializer(serializers.Serializer):
+    inicio = serializers.SlugRelatedField(
+        many=False,
+        read_only=False,
+        slug_field='name',
+        queryset=Endpoint.objects.all()
+    )
+    fim = serializers.SlugRelatedField(
+        many=False,
+        read_only=False,
+        slug_field='name',
+        queryset=Endpoint.objects.all()
+    )
