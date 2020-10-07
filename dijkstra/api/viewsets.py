@@ -19,7 +19,8 @@ class LogisticNetworkViewSet(viewsets.ModelViewSet):
 
 def make_graph(map):
     base_map = Map.objects.get(pk=map)
-    base_edges = Endpoint.objects.filter(Q(origin__in=base_map.networks.all()) | Q(destiny__in=base_map.networks.all())).distinct()
+    base_edges = Endpoint.objects.filter(
+        Q(origin__in=base_map.networks.all()) | Q(destiny__in=base_map.networks.all())).distinct()
     base_graph = {}
 
     for edge in base_edges:
@@ -51,6 +52,42 @@ class MapViewSet(viewsets.ModelViewSet):
             new_map.networks.add(new_edge)
         new_map.save()
         serializer = MapSerializer(new_map)
+        return Response(serializer.data)
+
+    @action(methods=['POST'], detail=False)
+    def importar(self, request, *args, **kwargs):
+        uploaded_file = self.request.FILES['mapa']
+        lines = uploaded_file.readlines()
+        map_object = Map.objects.create()
+        for ln in lines:
+            list_index = lines.index(ln)
+            if list_index == 0:
+                map_object.title = ln
+            else:
+                line_obj = ln.split()
+                if len(line_obj) > 3:
+                    return Response(
+                        {"Error": "Linha Inválida. O mapa deve ser expresso no padrão \"ORIGEM DESTINO DISTANCIA\""},
+                        status=status.HTTP_412_PRECONDITION_FAILED)
+                if line_obj[0].decode('utf-8').lower() == line_obj[1].decode('utf-8').lower():
+                    return Response(
+                        {"Error": "Linha Inválida. A origem deve ser diferente do destino."},
+                        status=status.HTTP_412_PRECONDITION_FAILED)
+                point_origin, created = Endpoint.objects.get_or_create(
+                    name=line_obj[0].decode('utf-8').lower()
+                )
+                point_destiny, created = Endpoint.objects.get_or_create(
+                    name=line_obj[1].decode('utf-8').lower()
+                )
+                distance = line_obj[2].decode('utf-8').lower()
+                new_edge, created = LogisticNetwork.objects.get_or_create(
+                    origin=point_origin.id,
+                    destiny=point_destiny.id,
+                    distance=distance
+                )
+                map_object.networks.add(new_edge)
+        map_object.save()
+        serializer = MapSerializer(map_object)
         return Response(serializer.data)
 
     @action(methods=['POST'], detail=True)
